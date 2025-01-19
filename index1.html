@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remove Background</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f9;
+            padding: 20px;
+        }
+        form {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        input, select, button {
+            margin-top: 10px;
+            padding: 10px;
+            width: 100%;
+            max-width: 300px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #progressContainer {
+            margin-top: 20px;
+            display: none;
+        }
+        progress {
+            width: 100%;
+            max-width: 300px;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Remove Background from Images and Videos</h1>
+    <form id="uploadForm" method="POST" action="/upload" enctype="multipart/form-data">
+        <label for="file">Upload File:</label>
+        <input type="file" id="file" name="file" accept="image/*,video/*" required>
+
+        <label for="type">Select File Type:</label>
+        <select id="type" name="type">
+            <option value="image">Image</option>
+            <option value="video">Video</option>
+        </select>
+
+        <button type="submit">Upload</button>
+    </form>
+
+    <div id="progressContainer">
+        <p>Processing: <span id="progressText">0%</span></p>
+        <progress id="progressBar" value="0" max="100"></progress>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(form);
+
+            progressContainer.style.display = 'block';
+            progressBar.value = 0;
+            progressText.textContent = '0%';
+
+            const uploadResponse = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!uploadResponse.ok) {
+                alert('File processing failed. Please try again.');
+                return;
+            }
+
+            const checkProgress = setInterval(async () => {
+                const progressResponse = await fetch('/progress');
+                const { progress } = await progressResponse.json();
+                progressBar.value = progress;
+                progressText.textContent = `${progress}%`;
+
+                if (progress >= 100) {
+                    clearInterval(checkProgress);
+
+                    const blob = await uploadResponse.blob();
+                    const url = URL.createObjectURL(blob);
+
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = url;
+                    downloadLink.download = formData.get('type') === 'image' ? 'output.png' : 'output.mp4';
+                    downloadLink.click();
+
+                    URL.revokeObjectURL(url);
+                    progressContainer.style.display = 'none';
+                }
+            }, 500);
+        });
+    </script>
+</body>
+</html>

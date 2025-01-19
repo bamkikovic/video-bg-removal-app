@@ -1,0 +1,5 @@
+
+Flask
+Waitress
+rembg
+opencv-python
