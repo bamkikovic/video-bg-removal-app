@@ -4,7 +4,6 @@ import os
 import cv2
 import numpy as np
 import subprocess
-from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 UPLOAD_FOLDER = 'uploads'
@@ -27,11 +26,9 @@ def process_image(file_path):
     return output_path
 
 def extract_frames(video_path, frames_dir):
-    # Resize video to 50% resolution and reduce frame rate to 15 fps
+    # Extract frames using ffmpeg
     subprocess.run([
-        "ffmpeg", "-i", video_path,
-        "-vf", "scale=iw*0.5:ih*0.5,fps=15",
-        os.path.join(frames_dir, "frame_%04d.png")
+        "ffmpeg", "-i", video_path, os.path.join(frames_dir, "frame_%04d.png")
     ], check=True)
 
 def process_frames(frames_dir, processed_dir):
@@ -39,7 +36,7 @@ def process_frames(frames_dir, processed_dir):
     frames = sorted(os.listdir(frames_dir))
     total_frames = len(frames)
 
-    def process_single_frame(frame):
+    for i, frame in enumerate(frames):
         frame_path = os.path.join(frames_dir, frame)
         output_path = os.path.join(processed_dir, frame)
         with open(frame_path, "rb") as f:
@@ -48,17 +45,15 @@ def process_frames(frames_dir, processed_dir):
         with open(output_path, "wb") as f:
             f.write(output_data)
 
-    # Use ThreadPoolExecutor for concurrent frame processing
-    with ThreadPoolExecutor(max_workers=4) as executor:  # Adjust workers as per system capabilities
-        for i, _ in enumerate(executor.map(process_single_frame, frames)):
-            progress["value"] = int(((i + 1) / total_frames) * 100)
+        # Update progress
+        progress["value"] = int(((i + 1) / total_frames) * 100)
 
-def reassemble_video(processed_dir, output_path, fps=15):
+def reassemble_video(processed_dir, output_path, fps=30):
     # Reassemble frames into a video using ffmpeg
     subprocess.run([
         "ffmpeg", "-r", str(fps), "-i",
         os.path.join(processed_dir, "frame_%04d.png"),
-        "-c:v", "libx264", "-vf", "fps=15", "-pix_fmt", "yuv420p", output_path
+        "-c:v", "libx264", "-vf", "fps=30", "-pix_fmt", "yuv420p", output_path
     ], check=True)
 
 def process_video(file_path):
